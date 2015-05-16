@@ -31,8 +31,8 @@ cycleRight frame = fr : cycleRight fr
               where
                 fr = drop 1 frame ++ take 1 frame
 
-fillRandom :: IO Animation
-fillRandom = sequence $ return $ replicateM 30 $ do
+fillRandom :: IO Frame
+fillRandom = replicateM 30 $ do
   r <- randomIO
   g <- randomIO
   b <- randomIO

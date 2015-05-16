@@ -21,4 +21,4 @@ main = do
   let port = "/dev/ttyACM0"
   s <- openSerial port defaultSerialSettings { commSpeed = CS115200 }
   replicateM_ 30 $ send s $ toStrict $ encode (0 :: Word64)
-  runAnimation s 100000 =<< join <$> replicateM 1000 fillRandom
+  runAnimation s 100000 =<< cycleRight <$> fillRandom
