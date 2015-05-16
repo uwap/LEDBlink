@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Proto where
 
 import Data.Binary
@@ -18,10 +19,14 @@ perform s p = do
     loop i = do
       str <- recv s 1
       if B.null str then do
-        threadDelay 100
-        if i > 100 then do
-          send s $ toStrict $ runPut $ setMode 99
-          loop 0
+        threadDelay 10
+        if i > 10 then do
+          print "HELP!"
+          setDTR s True
+          threadDelay 100
+          setDTR s False
+          threadDelay 100000
+          return ""
         else
           loop (i + 1)
       else
