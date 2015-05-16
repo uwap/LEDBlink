@@ -50,35 +50,3 @@ void loop() {
     }
   }
 }
-
-
-void randomWalkThrough(byte distance, byte wait, byte duration) {
-  setAll(pixels.Color(0,0,0));
-  for (int i = 0; i < NUMPIXELS*(duration+1); i++) {
-    shiftRight();
-    if (i % distance == 0 && i <= NUMPIXELS * duration)
-      pixels.setPixelColor(0, getRandomColor());
-    else
-      pixels.setPixelColor(0, pixels.Color(0,0,0));
-    pixels.show();
-    delay(wait);
-  }
-}
-
-void shiftRight() {
-  void *data = pixels.getPixels();
-  for (int i = NUMPIXELS-1; i >= 0; i--) {
-    memcpy(data + i*3 + 3, data + i*3, 3);
-  }
-}
-
-void setAll(uint32_t c) {
-  for (int i = 0; i < NUMPIXELS; i++) {
-    pixels.setPixelColor(i, c);
-  }
-  pixels.show();
-}
-
-inline uint32_t getRandomColor() {
-  return pixels.Color(random(255), random(255), random(255));
-}
