@@ -37,3 +37,10 @@ fillRandom = replicateM 30 $ do
   g <- randomIO
   b <- randomIO
   return (r,g,b)
+
+sinBrightness :: Frame -> Animation
+sinBrightness frame = sinBrightness' 0
+  where
+    sinBrightness' :: Double -> Animation
+    sinBrightness' i = let factor = 1 - abs (sin (i + 3.1415926535/2)) in
+                           (flip setBrightness factor <$> frame) : sinBrightness' (i + 0.01)

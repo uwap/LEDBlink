@@ -15,6 +15,11 @@ instance Num (Word8, Word8, Word8) where
   signum (r,g,b) = (signum r, signum g, signum b)
   fromInteger i = (fromInteger i, fromInteger i, fromInteger i)
 
+setBrightness :: Color -> Double -> Color
+setBrightness (r',g',b') fac =
+  let (r,g,b) = (fromIntegral r', fromIntegral g', fromIntegral b') in
+    (round $ r * fac, round $ g * fac, round $ b * fac)
+
 fromRGB :: Word8 -> Word8 -> Word8 -> Color
 fromRGB = (,,)
 
