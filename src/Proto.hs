@@ -12,12 +12,18 @@ import Color
 perform :: SerialPort -> Put -> IO ByteString
 perform s p = do
     send s $ toStrict $ runPut p
-    loop
+    putStrLn "Send data"
+    loop 0
   where
-    loop = do
+    loop i = do
       str <- recv s 1
-      if B.null str then
-        loop
+      if B.null str then do
+        threadDelay 100
+        if i > 100 then do
+          send s $ toStrict $ runPut $ setMode 99
+          loop 0
+        else
+          loop (i + 1)
       else
         return str
 
