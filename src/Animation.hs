@@ -5,42 +5,45 @@ import System.Hardware.Serialport
 import System.Random
 import Control.Concurrent
 import Control.Monad
+import Control.Monad.State
+import Control.Monad.IO.Class
 
 import qualified Proto as P
 
 type Frame = [Color]
-type Animation = [Frame]
+-- An animation consists out of a step function and a start value
+data Animation m = Animation { step :: Frame -> m Frame, startFrame :: Frame }
 
-runAnimation :: SerialPort -> Int -> Animation -> IO ()
-runAnimation _ _ [] = return ()
-runAnimation s delay (frame:frames) = do
-  P.perform s $ P.fill frame
-  threadDelay delay
-  runAnimation s delay frames
+type StateIO a b = StateT a IO b
 
-fill :: [Color] -> Animation
-fill = return
+runAnimation :: MonadIO m => SerialPort -> Int -> Animation m -> m ()
+runAnimation s delay animation = runAnim (startFrame animation)
+  where
+    runAnim frame = do
+      liftIO $ do
+        P.perform s (P.fill frame)
+        threadDelay delay
+      runAnim =<< step animation frame
 
-cycleLeft :: Frame -> Animation
-cycleLeft frame = fr : cycleLeft fr
-              where
-                fr = drop (length frame - 1) frame ++ take (length frame - 1) frame
+fill :: Monad m => Frame -> Animation m
+fill frame = Animation return frame
 
-cycleRight :: Frame -> Animation
-cycleRight frame = fr : cycleRight fr
-              where
-                fr = drop 1 frame ++ take 1 frame
+cycleLeft :: MonadIO m => Frame -> m Frame
+cycleLeft frame = liftIO $ return (drop (length frame - 1) frame ++ take (length frame - 1) frame)
 
-fillRandom :: IO Frame
-fillRandom = replicateM 30 $ do
+cycleRight :: MonadIO m => Frame -> m Frame
+cycleRight frame = liftIO $ return (drop 1 frame ++ take 1 frame)
+
+fillRandom :: MonadIO m => m Frame
+fillRandom = liftIO $ replicateM 30 $ do
   r <- randomIO
   g <- randomIO
   b <- randomIO
   return (r,g,b)
 
-sinBrightness :: Frame -> Animation
-sinBrightness frame = sinBrightness' 0
-  where
-    sinBrightness' :: Double -> Animation
-    sinBrightness' i = let factor = 1 - abs (sin (i + 3.1415926535/2)) in
-                           (flip setBrightness factor <$> frame) : sinBrightness' (i + 0.01)
+sinBrightness :: Frame -> Frame -> StateIO Double Frame
+sinBrightness frame _ = do
+  i <- get
+  put (i + 0.01)
+  let factor = 1 - abs (sin (i + 3.1415926535/2))
+  return (flip setBrightness factor <$> frame)

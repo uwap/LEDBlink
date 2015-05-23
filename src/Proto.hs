@@ -13,7 +13,6 @@ import Color
 perform :: SerialPort -> Put -> IO ByteString
 perform s p = do
     send s $ toStrict $ runPut p
-    putStrLn "Send data"
     loop 0
   where
     loop i = do
@@ -21,7 +20,6 @@ perform s p = do
       if B.null str then do
         threadDelay 10
         if i > 10 then do
-          print "HELP!"
           setDTR s True
           threadDelay 100
           setDTR s False
