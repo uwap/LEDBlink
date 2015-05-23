@@ -17,13 +17,17 @@ data Animation m = Animation { step :: Frame -> m (Maybe Frame), startFrame :: F
 type StateIO a b = StateT a IO b
 
 runAnimation :: MonadIO m => SerialPort -> Int -> Animation m -> m ()
-runAnimation s delay animation = runAnim (Just $ startFrame animation)
+runAnimation s delay animation = runAnimationFinitely s delay (-1) animation
+
+runAnimationFinitely :: MonadIO m => SerialPort -> Int -> Int -> Animation m -> m ()
+runAnimationFinitely s delay i animation = runAnim i (Just $ startFrame animation)
   where
-    runAnim mode = flip (maybe (return ())) mode $ \frame -> do
+    runAnim 0 _ = return ()
+    runAnim i mode = flip (maybe (return ())) mode $ \frame -> do
       liftIO $ do
         P.perform s (P.fill frame)
         threadDelay delay
-      runAnim =<< step animation frame
+      runAnim (i-1) =<< step animation frame
 
 fill :: Monad m => Frame -> Animation m
 fill frame = Animation (return . return) frame
@@ -44,7 +48,7 @@ fillRandom = fmap Just $ liftIO $ replicateM 30 $ do
 sinBrightness :: Frame -> Frame -> StateIO Double (Maybe Frame)
 sinBrightness frame _ = do
   i <- get
-  put (i + 0.01)
+  put (i + 0.1)
   let factor = 1 - abs (sin (i + 3.1415926535/2))
   return $ if i >= 3.141592 then
       Nothing
