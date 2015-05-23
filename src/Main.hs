@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import Data.ByteString as B (ByteString, null) 
@@ -11,6 +12,9 @@ import Data.Binary.Put
 import Data.Word
 import Data.Foldable
 import Data.Maybe
+import Data.Int
+import Data.Text (Text)
+import qualified Network.WebSockets as WS
 
 import Color
 import Animation
@@ -24,20 +28,25 @@ main = do
     let port = "/dev/ttyACM0"
     s <- openSerial port defaultSerialSettings { commSpeed = CS115200 }
     replicateM_ 3 $ send s $ toStrict $ encode (0 :: Word64)
-    mode <- readLn
-    loop s mode 
+    mode <- newMVar Black
+    forkIO $ WS.runServer "127.0.0.1" 8080 $ \req -> do
+      conn <- WS.acceptRequest req
+      forever $ do
+        dat <- WS.receiveData conn :: IO Text
+        case dat of
+          "randomCycleRight" -> putMVar mode RandomCycleRight
+          "randomSin" -> putMVar mode RandomSin
+          _ -> putMVar mode Black
+    loop s mode Nothing 
   where
-    loop s mode = do
-      action <- case mode of
-        1 -> return RandomCycleRight
-        2 -> return RandomSin
-        3 -> return . FillColor =<< readColor
-        4 -> return . ColorSin =<< readColor
-        _ -> return Black
+    loop :: SerialPort -> MVar Mode -> Maybe ThreadId -> IO ()
+    loop s mode mtid = do
+      action <- takeMVar mode
+      case mtid of
+        Just tid -> killThread tid
+        Nothing -> return ()
       tid <- forkIO $ animate s action
-      nmode <- readLn
-      killThread tid
-      loop s nmode
+      loop s mode (Just tid)
 
     readColor :: IO Color
     readColor = do
