@@ -19,6 +19,9 @@ type StateIO a b = StateT a IO b
 runAnimation :: MonadIO m => SerialPort -> Int -> Animation m -> m ()
 runAnimation s delay animation = runAnimationFinitely s delay (-1) animation
 
+runAnimationOnce :: MonadIO m => SerialPort -> Int -> Animation m -> m ()
+runAnimationOnce s delay animation = runAnimationFinitely s delay 1 animation
+
 runAnimationFinitely :: MonadIO m => SerialPort -> Int -> Int -> Animation m -> m ()
 runAnimationFinitely s delay i animation = runAnim i (Just $ startFrame animation)
   where
