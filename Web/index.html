@@ -3,16 +3,30 @@
   <head>
     <meta charset="utf-8" />
     <title>LED Control</title>
-    <script>
-      var connection = new WebSocket("ws://localhost:8080", "test");
-      function setMode(mode) {
-        connection.send(mode);
-      }
-    </script>
+    <link rel="stylesheet" href="jquery-ui.min.css" />
+    <script src="jquery.js"></script>
+    <script src="jquery-ui.min.js"></script>
+    <script src="scripts/socket.js"></script>
+    <script src="scripts/slider.js"></script>
   </head>
-  <body>
+  <body><!--
     <input type="button" onClick="setMode('randomCycleRight');" value="Cycle" />
     <input type="button" onClick="setMode('randomSin');" value="Sin" />
     <input type="button" onClick="setMode('black');" value="Black" />
+  -->
+    <table border="0" style="width: 50%">
+      <tr>      
+        <td>
+          <div id="sliderRed"></div>
+          <div id="sliderGreen"></div>
+          <div id="sliderBlue"></div>
+        </td>
+        <td id="colorPreview" style="background: rgb(127,127,127); width: 12%">
+          &nbsp;
+        </td>
+      </tr>
+    </table>
+    <button class="colorSin">Sin Animation</button>
+    <button class="setColor">Set Color</button>
   </body>
 </html>

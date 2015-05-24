@@ -13,7 +13,8 @@ import Data.Word
 import Data.Foldable
 import Data.Maybe
 import Data.Int
-import Data.Text (Text)
+import Data.Text (Text, unpack)
+import Text.Read
 import qualified Network.WebSockets as WS
 
 import Color
@@ -23,20 +24,22 @@ import qualified Proto as P
 
 data Mode = Black | RandomCycleRight | FillColor Color | FillFrame Frame | ColorSin Color | RandomSin
 
+defaultMode :: Mode
+defaultMode = Black
+
+defaultOr :: Maybe Mode -> Mode
+defaultOr = fromMaybe Black 
+
+fromMaybeColor :: (Color -> Mode) -> Maybe Color -> Mode
+fromMaybeColor mode col = defaultOr $ liftM mode col
+
 main :: IO ()
 main = do
     let port = "/dev/ttyACM0"
     s <- openSerial port defaultSerialSettings { commSpeed = CS115200 }
     replicateM_ 3 $ send s $ toStrict $ encode (0 :: Word64)
     mode <- newMVar Black
-    forkIO $ WS.runServer "127.0.0.1" 8080 $ \req -> do
-      conn <- WS.acceptRequest req
-      forever $ do
-        dat <- WS.receiveData conn :: IO Text
-        case dat of
-          "randomCycleRight" -> putMVar mode RandomCycleRight
-          "randomSin" -> putMVar mode RandomSin
-          _ -> putMVar mode Black
+    forkIO $ WS.runServer "127.0.0.1" 8080 $ webSocketServer mode
     loop s mode Nothing 
   where
     loop :: SerialPort -> MVar Mode -> Maybe ThreadId -> IO ()
@@ -48,16 +51,29 @@ main = do
       tid <- forkIO $ animate s action
       loop s mode (Just tid)
 
-    readColor :: IO Color
-    readColor = do
-      r <- readLn
-      g <- readLn
-      b <- readLn
-      return (r,g,b)
+    readColor :: WS.Connection -> IO (Maybe Color)
+    readColor conn = do
+      r <- readMaybe . unpack <$> WS.receiveData conn
+      g <- readMaybe . unpack <$> WS.receiveData conn
+      b <- readMaybe . unpack <$> WS.receiveData conn
+      return $ liftM3 (,,) r g b
 
+    webSocketServer :: MVar Mode -> WS.PendingConnection -> IO ()
+    webSocketServer mode req = do
+      conn <- WS.acceptRequest req
+      forever $ do
+        dat <- WS.receiveData conn :: IO Text
+        putMVar mode =<< case dat of
+          "randomCycleRight" -> return RandomCycleRight
+          "randomSin"        -> return RandomSin
+          "fillColor"        -> return . fromMaybeColor FillColor =<< readColor conn
+          "colorSin"         -> return . fromMaybeColor ColorSin =<< readColor conn
+          _                  -> return Black
+
+    animate :: SerialPort -> Mode -> IO ()
     animate s mode = do
       frame <- fromJust <$> fillRandom
-      liftIO $ case mode of
+      case mode of
         Black            -> runAnimationOnce s 0 (fill (replicate 30 (0,0,0)))
         RandomCycleRight -> runAnimation s 100000 (Animation cycleRight frame)
         FillColor color  -> runAnimationOnce s 0 (fill (replicate 30 color))
