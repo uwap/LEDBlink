@@ -11,3 +11,9 @@ $ ->
     value: 127
     slide: refreshPreview
     change: refreshPreview
+  $("#brightnessSlider").slider
+    orientation: "horizontal"
+    range: "min"
+    max: 1
+    min: 0
+    step: 0.001

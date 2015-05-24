@@ -4,9 +4,10 @@ setMode = (mode) ->
   connection.send mode
 
 sendColor = ->
-  connection.send $("#sliderRed").slider "value"
-  connection.send $("#sliderGreen").slider "value"
-  connection.send $("#sliderBlue").slider "value"
+  brightness = $("#brightnessSlider").slider "value"
+  connection.send Math.floor(brightness * $("#sliderRed").slider "value")
+  connection.send Math.floor(brightness * $("#sliderGreen").slider "value")
+  connection.send Math.floor(brightness * $("#sliderBlue").slider "value")
 
 $ ->
   $(".colorSin").button().click ->
