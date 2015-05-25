@@ -21,9 +21,9 @@ perform s p = do
         threadDelay 10
         if i > 10 then do
           setDTR s True
-          threadDelay 100
+          threadDelay 1000
           setDTR s False
-          threadDelay 100000
+          threadDelay 5000000
           return ""
         else
           loop (i + 1)
