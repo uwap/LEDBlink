@@ -16,3 +16,9 @@ $ ->
   $(".setColor").button().click ->
     setMode "fillColor"
     sendColor()
+  $(".centerButton").button().click ->
+    setMode "centered"
+    sendColor()
+  $(".centerSin").button().click ->
+    setMode "centerSin"
+    sendColor()

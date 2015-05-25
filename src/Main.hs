@@ -22,7 +22,14 @@ import Animation
 
 import qualified Proto as P
 
-data Mode = Black | RandomCycleRight | FillColor Color | FillFrame Frame | ColorSin Color | RandomSin
+data Mode = Black
+          | FillColor Color
+          | FillFrame Frame
+          | RandomCycleRight
+          | RandomSin
+          | ColorSin Color
+          | CenterSin Color
+          | Centered Color
 
 defaultMode :: Mode
 defaultMode = Black
@@ -68,6 +75,8 @@ main = do
           "randomSin"        -> return RandomSin
           "fillColor"        -> return . fromMaybeColor FillColor =<< readColor conn
           "colorSin"         -> return . fromMaybeColor ColorSin =<< readColor conn
+          "centered"         -> return . fromMaybeColor Centered =<< readColor conn
+          "centerSin"        -> return . fromMaybeColor CenterSin =<< readColor conn
           _                  -> return Black
 
     animate :: SerialPort -> Mode -> IO ()
@@ -78,8 +87,15 @@ main = do
         RandomCycleRight -> runAnimation s 100000 (Animation cycleRight frame)
         FillColor color  -> runAnimationOnce s 0 (fill (replicate 30 color))
         FillFrame frame  -> runAnimationOnce s 0 (fill frame)
+        Centered color   -> runAnimationOnce s 0 (fill $ center color 30)
+        CenterSin color  -> forever $ flip runStateT 0 $
+          runAnimation s 10000 (Animation (sinBrightness (center color 30)) (replicate 30 (0,0,0)))
         ColorSin color   -> forever $ flip runStateT 0 $
           runAnimation s 10000 (Animation (sinBrightness (replicate 30 color)) (replicate 30 (0,0,0)))
         RandomSin        -> forever $ flip runStateT 0 $ do
           frame <- liftIO $ fromJust <$> fillRandom
           runAnimation s 10000 (Animation (sinBrightness frame) (replicate 30 (0,0,0)))
+
+    center :: Color -> Int -> Frame
+    center col 0 = [(0,0,0)]
+    center col i = (fromIntegral ((15 - abs(15 - i)) ^ 2) * col) : center col (i -1)
