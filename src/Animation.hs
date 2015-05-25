@@ -11,49 +11,55 @@ import Control.Monad.IO.Class
 import qualified Proto as P
 
 type Frame = [Color]
--- An animation consists out of a step function and a start value
-data Animation m = Animation { step :: Frame -> m (Maybe Frame), startFrame :: Frame }
+data AnimationGenerator = AnimationGenerator { step :: Integer -> Frame -> IO Frame, combinator :: Color -> Color -> Color }
+type Animation = [AnimationGenerator]
 
-type StateIO a b = StateT a IO b
-
-runAnimation :: MonadIO m => SerialPort -> Int -> Animation m -> m ()
-runAnimation s delay animation = runAnimationFinitely s delay (-1) animation
-
-runAnimationOnce :: MonadIO m => SerialPort -> Int -> Animation m -> m ()
-runAnimationOnce s delay animation = runAnimationFinitely s delay 1 animation
-
-runAnimationFinitely :: MonadIO m => SerialPort -> Int -> Int -> Animation m -> m ()
-runAnimationFinitely s delay i animation = runAnim i (Just $ startFrame animation)
+animate :: SerialPort -> Animation -> IO ()
+animate s ani = combineAnimations 0 (replicate 30 (0,0,0)) ani
   where
-    runAnim 0 _ = return ()
-    runAnim i mode = flip (maybe (return ())) mode $ \frame -> do
-      liftIO $ do
-        P.perform s (P.fill frame)
-        threadDelay delay
-      runAnim (i-1) =<< step animation frame
+    combineAnimations :: Integer -> Frame -> Animation -> IO ()
+    combineAnimations i frame (a:[]) = do
+      f <- step a i frame
+      P.perform s $ P.fill f
+      combineAnimations (i+1) f ani 
+    combineAnimations i frame (a:b:xs) = do
+      af <- step a i frame
+      bf <- step b i frame
+      combineAnimations i frame ((AnimationGenerator (\_ _ -> return (uncurry (combinator b) <$> zip af bf)) (combinator b)) : xs)
 
-fill :: Monad m => Frame -> Animation m
-fill frame = Animation (return . return) frame
+fill :: Frame -> Animation
+fill frame = return $ AnimationGenerator (const $ const $ return frame) (*)
 
-cycleLeft :: MonadIO m => Frame -> m (Maybe Frame)
-cycleLeft frame = liftIO $ return $ Just (drop (length frame - 1) frame ++ take (length frame - 1) frame)
+fillColor :: Color -> Animation
+fillColor color = return $ AnimationGenerator (const $ const $ return $ replicate 30 color) (*)
 
-cycleRight :: MonadIO m => Frame -> m (Maybe Frame)
-cycleRight frame = liftIO $ return $ Just (drop 1 frame ++ take 1 frame)
+cycleLeft :: Animation
+cycleLeft = return $ AnimationGenerator step const
+  where step _ frame = return $ drop (length frame - 1) frame ++ take (length frame - 1) frame
 
-fillRandom :: MonadIO m => m (Maybe Frame)
-fillRandom = fmap Just $ liftIO $ replicateM 30 $ do
-  r <- randomIO
-  g <- randomIO
-  b <- randomIO
-  return (r,g,b)
+cycleRight :: Animation
+cycleRight = return $ AnimationGenerator step const
+  where step _ frame = return $ drop 1 frame ++ take 1 frame
 
-sinBrightness :: Frame -> Frame -> StateIO Double (Maybe Frame)
-sinBrightness frame _ = do
-  i <- get
-  put (i + 0.1)
-  let factor = 1 - abs (sin (i + 3.1415926535/2))
-  return $ if i >= 3.141592 then
-      Nothing
-    else
-      Just (flip setBrightness factor <$> frame)
+centerColor :: Color -> Animation
+centerColor color = return $ AnimationGenerator step (+)
+  where 
+    step _ _ = return $ center color 30
+    
+    center :: Color -> Int -> Frame
+    center col 0 = [(0,0,0)]
+    center col i = (fromIntegral ((15 - abs(15 - i)) ^ 2) * col) : center col (i -1)
+
+fillRandom :: Animation
+fillRandom = return $ AnimationGenerator step (*)
+  where step _ _ = replicateM 30 $ do
+                    r <- randomIO
+                    g <- randomIO
+                    b <- randomIO
+                    return (r,g,b)
+
+sinBrightness :: Animation
+sinBrightness = return $ AnimationGenerator step (*)
+  where
+    step i _ = let factor = 1 - abs (sin ((fromIntegral i / 100) + 3.1415926535/2)) in
+      return $ flip setBrightness factor <$> replicate 30 (255,255,255)
