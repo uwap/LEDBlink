@@ -34,7 +34,7 @@ main = do
     let port = "/dev/ttyACM0"
     s <- openSerial port defaultSerialSettings { commSpeed = CS115200 }
     replicateM_ 3 $ send s $ toStrict $ encode (0 :: Word64)
-    animation <- newMVar (fillRandom <> cycleRight <> sinBrightness)
+    animation <- newMVar (fillRandom <> sinBrightness <> cycleRight)
     forkIO $ WS.runServer "127.0.0.1" 8080 $ webSocketServer animation
     loop s animation Nothing 
   where
