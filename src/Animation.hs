@@ -7,6 +7,7 @@ import Control.Concurrent
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.IO.Class
+import System.IO.Unsafe
 
 import qualified Proto as P
 
@@ -24,8 +25,8 @@ animate s ani = combineAnimations 0 (replicate 30 (0,0,0)) ani
       combineAnimations (i+1) f ani 
     combineAnimations i frame (a:b:xs) = do
       af <- step a i frame
-      bf <- step b i frame
-      combineAnimations i frame ((AnimationGenerator (\_ _ -> return (uncurry (combinator b) <$> zip af bf)) (combinator b)) : xs)
+      bf <- step b i af
+      combineAnimations i bf ((AnimationGenerator (\_ _ -> return (uncurry (combinator b) <$> zip af bf)) (combinator b)) : xs)
 
 fill :: Frame -> Animation
 fill frame = return $ AnimationGenerator (const $ const $ return frame) (*)
@@ -34,12 +35,18 @@ fillColor :: Color -> Animation
 fillColor color = return $ AnimationGenerator (const $ const $ return $ replicate 30 color) (*)
 
 cycleLeft :: Animation
-cycleLeft = return $ AnimationGenerator step const
-  where step _ frame = return $ drop (length frame - 1) frame ++ take (length frame - 1) frame
+cycleLeft = return $ AnimationGenerator step (flip const)
+  where
+    step 0 frame = return (last frame : init frame)
+    step i frame | i `mod` 10 == 0 = step (i-1) (last frame : init frame)
+    step i frame = step (i-1) frame
 
 cycleRight :: Animation
-cycleRight = return $ AnimationGenerator step const
-  where step _ frame = return $ drop 1 frame ++ take 1 frame
+cycleRight = return $ AnimationGenerator step (flip const)
+  where
+    step 0 frame = return $ tail frame ++ [head frame]
+    step i frame | i `mod` 10 == 0 = step (i-1) $ tail frame ++ [head frame]
+    step i frame = step (i-1) frame
 
 centerColor :: Color -> Animation
 centerColor color = return $ AnimationGenerator step (+)
@@ -52,7 +59,7 @@ centerColor color = return $ AnimationGenerator step (+)
 
 fillRandom :: Animation
 fillRandom = return $ AnimationGenerator step (*)
-  where step _ _ = replicateM 30 $ do
+  where step _ _ = replicateM 30 $! do
                     r <- randomIO
                     g <- randomIO
                     b <- randomIO
