@@ -34,7 +34,7 @@ main = do
     let port = "/dev/ttyACM0"
     s <- openSerial port defaultSerialSettings { commSpeed = CS115200 }
     replicateM_ 3 $ send s $ toStrict $ encode (0 :: Word64)
-    animation <- newMVar (fillRandom <> sinBrightness <> cycleRight)
+    animation <- newMVar (sinBrightness <> cycleRight)
     forkIO $ WS.runServer "127.0.0.1" 8080 $ webSocketServer animation
     loop s animation Nothing 
   where
@@ -44,7 +44,8 @@ main = do
       case mtid of
         Just tid -> killThread tid
         Nothing -> return ()
-      tid <- forkIO $ animate s anim
+      frame <- randomFrame
+      tid <- forkIO $ animate s frame anim
       loop s animation (Just tid)
 
     readColor :: WS.Connection -> IO (Maybe Color)

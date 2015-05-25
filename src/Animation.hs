@@ -15,14 +15,14 @@ type Frame = [Color]
 type AnimationGenerator = Integer -> Frame -> IO Frame
 type Animation = [AnimationGenerator]
 
-animate :: SerialPort -> Animation -> IO ()
-animate s ani = combineAnimations 0 (replicate 30 (0,0,0)) ani
+animate :: SerialPort -> Frame -> Animation -> IO ()
+animate s startFrame ani = combineAnimations 0 startFrame ani
   where
     combineAnimations :: Integer -> Frame -> Animation -> IO ()
     combineAnimations i frame a = do
       f <- combineAll i frame a
       P.perform s $ P.fill f
-      combineAnimations (i+1) f ani 
+      combineAnimations (i+1) frame ani 
 
 combineAll :: Integer -> Frame -> Animation -> IO Frame
 combineAll i frame (step:[]) = step i frame
@@ -61,11 +61,10 @@ centerColor color = return step
 
 fillRandom :: Animation
 fillRandom = return step
-  where step _ _ = return $ unsafePerformIO $ replicateM 30 $! do
-                    r <- randomIO
-                    g <- randomIO
-                    b <- randomIO
-                    return (r,g,b)
+  where step _ _ = randomFrame
+
+randomFrame :: IO Frame
+randomFrame = replicateM 30 $ liftM3 (,,) randomIO randomIO randomIO
 
 sinBrightness :: Animation
 sinBrightness = return step
