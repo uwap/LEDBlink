@@ -9,11 +9,13 @@ import Control.Monad
 type Color = (Word8, Word8, Word8)
 
 instance Num (Word8, Word8, Word8) where
-  (+) (r1,g1,b1) (r2,g2,b2) = (r1+r2,g1+g2,b1+b2)
-  (*) (r1,g1,b1) (r2,g2,b2) = (r1*r2,g1*g2,b1*b2)
+  (+) (r1,g1,b1) (r2,g2,b2) = (r1+r2,g1+g2,b1+b2) - fromInteger 255
+  (*) (r1,g1,b1) (r2,g2,b2) = (mulColFrag r1 r2, mulColFrag g1 g2, mulColFrag b1 b2)
   abs (r,g,b) = (abs r, abs g, abs b)
   signum (r,g,b) = (signum r, signum g, signum b)
   fromInteger i = (fromInteger i, fromInteger i, fromInteger i)
+  
+mulColFrag a b = floor $ fromIntegral a * fromIntegral b / 255
 
 setBrightness :: Color -> Double -> Color
 setBrightness (r',g',b') fac =
