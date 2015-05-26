@@ -21,7 +21,7 @@ animate s startFrame ani = combineAnimations 0 startFrame ani
     combineAnimations :: Integer -> Frame -> Animation -> IO ()
     combineAnimations i frame a = do
       f <- combineAll i frame a
-      P.perform s $ P.fill f
+      P.perform s $ P.fill (join $ replicate 3 f)
       combineAnimations (i+1) frame ani 
 
 combineAll :: Integer -> Frame -> Animation -> IO Frame
@@ -29,6 +29,11 @@ combineAll i frame (step:[]) = step i frame
 combineAll i frame (step:steps) = do
   f <- step i frame
   combineAll i f steps
+
+every :: Integer -> Animation -> Animation
+every i ani = return step
+  where
+    step j frame = combineAll (floor (fromIntegral j / fromIntegral i)) frame ani
 
 fill :: Frame -> Animation
 fill frame = return $ const $ const $ return frame
@@ -71,3 +76,10 @@ sinBrightness = return step
   where
     step i frame = let factor = 1 - abs (sin ((fromIntegral i / 100) + 3.1415926535/2)) in
       return $ fmap (uncurry (*)) $ zip frame $ flip setBrightness factor <$> replicate 30 (255,255,255)
+
+addSin :: Int -> Color -> Animation
+addSin i col = return step
+  where
+    step j frame = let factor = 1 - abs (sin ((fromIntegral i / 100) + 3.1415926535/2)) in
+      return $ fmap (uncurry (+)) $ zip frame $ flip setBrightness factor <$> createSin
+    createSin = (*col) <$> fromIntegral <$> [(min (3-abs(i - j)) 0) * 80 | j <- [1..30]]
