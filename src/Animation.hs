@@ -45,18 +45,16 @@ fillColor :: Color -> Animation
 fillColor color = return $ const $ const $ return $ replicate pixels color
 
 cycleLeft :: Animation
-cycleLeft = return (\i -> step (i `mod` 300))
+cycleLeft = return step
   where
-    step 0 frame = return (last frame : init frame)
-    step i frame | i `mod` 10 == 0 = step (i-1) (last frame : init frame)
-    step i frame = step (i-1) frame
+    step 0 frame = return frame
+    step i frame = step (i-1) (last frame : init frame)
 
 cycleRight :: Animation
-cycleRight = return (\i -> step (i `mod` 300))
+cycleRight = return step
   where
-    step 0 frame = return $ tail frame ++ [head frame]
-    step i frame | i `mod` 10 == 0 = step (i-1) $ tail frame ++ [head frame]
-    step i frame = step (i-1) frame
+    step 0 frame = return frame
+    step i frame = step (i-1) $ tail frame ++ [head frame]
 
 centerColor :: Color -> Animation
 centerColor color = return step
