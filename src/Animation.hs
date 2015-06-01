@@ -19,16 +19,16 @@ type AnimationGenerator = Integer -> Frame -> IO Frame
 type Animation = [AnimationGenerator]
 
 animate :: SerialPort -> Frame -> Animation -> IO ()
-animate s startFrame ani = combineAnimations 0 startFrame ani
+animate s startFrame ani = runAnimation 0
   where
-    combineAnimations :: Integer -> Frame -> Animation -> IO ()
-    combineAnimations i frame a = do
-      f <- combineAll i frame a
+    runAnimation :: Integer -> IO ()
+    runAnimation i = do
+      f <- combineAll i startFrame ani
       P.perform s $ P.fill (join $ replicate 3 f)
-      combineAnimations (i+1) frame ani 
+      runAnimation (i+1) 
 
 combineAll :: Integer -> Frame -> Animation -> IO Frame
-combineAll i frame (step:[]) = step i frame
+combineAll i frame [] = return frame
 combineAll i frame (step:steps) = do
   f <- step i frame
   combineAll i f steps
@@ -85,4 +85,4 @@ addSin i col = return step
   where
     step j frame = let factor = 1 - abs (sin ((fromIntegral i / 100) + 3.1415926535/2)) in
       return $ fmap (uncurry (+)) $ zip frame $ flip setBrightness factor <$> createSin
-    createSin = (*col) <$> fromIntegral <$> [(min (3-abs(i - j)) 0) * 80 | j <- [1..pixels]]
+    createSin = (*col) <$> fromIntegral <$> [min (3-abs(i - j)) 0 * 80 | j <- [1..pixels]]
