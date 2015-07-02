@@ -10,9 +10,9 @@ import Control.Concurrent
 import Control.Monad
 import Color
 
-perform :: SerialPort -> Put -> IO ByteString
-perform s p = do
-    send s $ toStrict $ runPut p
+sendFrame :: SerialPort -> [Color] -> IO ByteString
+sendFrame s frame = do
+    send s $ toStrict $ runPut (fill frame)
     loop 0
   where
     loop i = do

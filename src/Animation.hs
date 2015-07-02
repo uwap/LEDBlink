@@ -3,84 +3,77 @@ module Animation where
 import Color
 import System.Hardware.Serialport
 import System.Random
-import Control.Concurrent
 import Control.Monad
-import Control.Monad.State
-import Control.Monad.IO.Class
-import System.IO.Unsafe
+import Control.Lens
+import Data.IORef
 
-import qualified Proto as P
+import Proto (sendFrame)
 
 pixels :: Int
 pixels = 30
 
 type Frame = [Color]
-type AnimationGenerator = Integer -> Frame -> IO Frame
-type Animation = [AnimationGenerator]
+type Animation = Frame -> IO Frame
+type Counter = IORef Int
 
-animate :: SerialPort -> Frame -> Animation -> IO ()
-animate s startFrame ani = runAnimation 0
+animate :: SerialPort -> Counter -> Frame -> Animation -> IO ()
+animate s counter startFrame ani = runAnimation startFrame
   where
-    runAnimation :: Integer -> IO ()
-    runAnimation i = do
-      f <- combineAll i startFrame ani
-      P.perform s $ P.fill (join $ replicate 3 f)
-      runAnimation (i+1) 
+    runAnimation :: Frame -> IO ()
+    runAnimation frame = do
+      _ <- sendFrame s frame
+      modifyIORef counter (+1)
+      newFrame <- ani frame
+      runAnimation newFrame
 
-combineAll :: Integer -> Frame -> Animation -> IO Frame
-combineAll i frame [] = return frame
-combineAll i frame (step:steps) = do
-  f <- step i frame
-  combineAll i f steps
-
-every :: Integer -> Animation -> Animation
-every i ani = return step
-  where
-    step j frame = combineAll (floor (fromIntegral j / fromIntegral i)) frame ani
+every :: Int -> Counter -> Animation -> Animation
+every i counter f frame = do
+  j <- readIORef counter
+  if i `mod` j == 0 then
+    f frame
+  else
+    return frame
 
 fill :: Frame -> Animation
-fill frame = return $ const $ const $ return frame
+fill frame _ = return frame
 
 fillColor :: Color -> Animation
-fillColor color = return $ const $ const $ return $ replicate pixels color
+fillColor color _ = return $ replicate pixels color
 
 cycleLeft :: Animation
-cycleLeft = return step
-  where
-    step 0 frame = return frame
-    step i frame = step (i-1) (last frame : init frame)
+cycleLeft frame = return (last frame : init frame)
 
 cycleRight :: Animation
-cycleRight = return step
-  where
-    step 0 frame = return frame
-    step i frame = step (i-1) $ tail frame ++ [head frame]
+cycleRight frame = return (tail frame ++ [head frame])
 
-centerColor :: Color -> Animation
-centerColor color = return step
+{-center :: Animation
+center frame = return (loop pixels)
   where 
-    step _ _ = return $ center color pixels
-    
-    center :: Color -> Int -> Frame
-    center col 0 = [(0,0,0)]
-    center col i = (fromIntegral ((round(fromIntegral pixels / 2) - abs(round(fromIntegral pixels / 2) - i)) ^ 2) * col) : center col (i -1)
-
+    center :: Color -> Int -> Int
+    center col 0 = 0
+    center col i = fromIntegral ((round(fromIntegral pixels / 2) - abs(round(fromIntegral pixels / 2) - i)) ^ 2)
+-}
 fillRandom :: Animation
-fillRandom = return step
-  where step _ _ = randomFrame
+fillRandom _ = randomFrame
 
 randomFrame :: IO Frame
-randomFrame = replicateM 30 $ liftM3 (,,) randomIO randomIO randomIO
-
-sinBrightness :: Animation
-sinBrightness = return step
+randomFrame = replicateM pixels randomColor
   where
-    step i frame = let factor = 1 - abs (sin ((fromIntegral i / 100) + 3.1415926535/2)) in
-      return $ fmap (uncurry (*)) $ zip frame $ flip setBrightness factor <$> replicate pixels (255,255,255)
+    randomColor = Color 1 <$> randomIO <*> randomIO <*> randomIO
 
-addSin :: Int -> Color -> Animation
-addSin i col = return step
-  where
-    step j frame = let factor = 1 - abs (sin ((fromIntegral i / 100) + 3.1415926535/2)) in
-      return $ fmap (uncurry (+)) $ zip frame $ flip setBrightness factor <$> createSin
-    createSin = (*col) <$> fromIntegral <$> [min (3-abs(i - j)) 0 * 80 | j <- [1..pixels]]
+sinBrightness :: Counter -> Animation
+sinBrightness counter frame = do
+  i <- readIORef counter
+  let deltaB = sinFactor i - sinFactor (i-1)
+  return ((& brightness %~ (+) deltaB) <$> frame)
+
+{-
+addSin :: Counter -> Color -> Animation
+addSin counter col frame = do
+  i <- readIORef counter
+  let brightness = flip setBrightness (sinFactor i) <$> replicate pixels (255,255,255)
+  let sin = flip setBrightness (sinFactor i) <$> (*col) <$> fromIntegral <$> [min (3-abs(i - j)) 0 * 80 | j <- [1..pixels]]
+  return (uncurry (+) <$> zip frame sin)
+-}
+sinFactor :: Int -> Double
+sinFactor i = 1 - abs (sin ((fromIntegral i / 100) + 3.1415926535/2))

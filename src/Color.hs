@@ -1,39 +1,35 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Color where
 
-import System.Random
 import Data.Word
-import Control.Monad
+import Data.Binary
+import Control.Lens
 
-type Color = (Word8, Word8, Word8)
+data Color = Color { _brightness :: Double
+                   , _r          :: Word8
+                   , _g          :: Word8
+                   , _b          :: Word8
+                   }
+makeLenses ''Color
 
-instance Num (Word8, Word8, Word8) where
-  (+) (r1,g1,b1) (r2,g2,b2) = (r1+r2,g1+g2,b1+b2) - 255
-  (*) (r1,g1,b1) (r2,g2,b2) = (mulColFrag r1 r2, mulColFrag g1 g2, mulColFrag b1 b2)
-  abs (r,g,b) = (abs r, abs g, abs b)
-  signum (r,g,b) = (signum r, signum g, signum b)
-  fromInteger i = (fromInteger i, fromInteger i, fromInteger i)
-  
-mulColFrag a b = floor $ fromIntegral a * fromIntegral b / 255
+instance Binary Color where
+  put = put . toRGB
+  get = uncurry2 fromRGB <$> get
+    where
+      uncurry2 f (x,y,z) = f x y z
 
-setBrightness :: Color -> Double -> Color
-setBrightness (r',g',b') fac =
-  let (r,g,b) = (fromIntegral r', fromIntegral g', fromIntegral b') in
-    (round $ r * fac, round $ g * fac, round $ b * fac)
+setBrightness :: Double -> Color -> Color
+setBrightness br color = color & brightness .~ br
 
 fromRGB :: Word8 -> Word8 -> Word8 -> Color
-fromRGB = (,,)
+fromRGB = Color 1
 
 fromBGR :: Word8 -> Word8 -> Word8 -> Color
-fromBGR b g r = fromRGB r g b
+fromBGR blue green red = fromRGB red green blue
 
-randomColors :: Int -> IO [Color]
-randomColors amount = replicateM amount $ do
-  r <- randomIO
-  g <- randomIO
-  b <- randomIO
-  return (r `mod` 255, g `mod` 255, b `mod` 255)
-
-black :: Color
-black = (0, 0, 0)
+toRGB :: Color -> (Word8, Word8, Word8)
+toRGB (Color br red green blue) = (applyBrightness red, applyBrightness green, applyBrightness blue)
+                  where
+                    applyBrightness :: Word8 -> Word8
+                    applyBrightness c = round (br * fromIntegral c)
