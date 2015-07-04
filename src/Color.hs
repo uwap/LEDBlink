@@ -10,7 +10,7 @@ data Color = Color { _brightness :: Double
                    , _r          :: Word8
                    , _g          :: Word8
                    , _b          :: Word8
-                   }
+                   } deriving (Show)
 makeLenses ''Color
 
 instance Binary Color where

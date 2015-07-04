@@ -29,7 +29,7 @@ animate s counter startFrame ani = runAnimation startFrame
 every :: Int -> Counter -> Animation -> Animation
 every i counter f frame = do
   j <- readIORef counter
-  if i `mod` j == 0 then
+  if j `mod` i == 0 then
     f frame
   else
     return frame
@@ -64,8 +64,8 @@ randomFrame = replicateM pixels randomColor
 sinBrightness :: Counter -> Animation
 sinBrightness counter frame = do
   i <- readIORef counter
-  let deltaB = sinFactor i - sinFactor (i-1)
-  return ((& brightness %~ (+) deltaB) <$> frame)
+  --let deltaB = sinFactor i - sinFactor (i-1)
+  return ((& brightness .~ sinFactor i) <$> frame)
 
 {-
 addSin :: Counter -> Color -> Animation
@@ -76,4 +76,4 @@ addSin counter col frame = do
   return (uncurry (+) <$> zip frame sin)
 -}
 sinFactor :: Int -> Double
-sinFactor i = 1 - abs (sin ((fromIntegral i / 100) + 3.1415926535/2))
+sinFactor i = 1 - abs (sin ((fromIntegral i / 20) + 3.1415926535/2))

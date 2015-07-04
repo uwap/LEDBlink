@@ -10,11 +10,23 @@ import Control.Concurrent
 import Control.Monad
 import Color
 
-sendFrame :: SerialPort -> [Color] -> IO ByteString
-sendFrame s frame = do
-    send s $ toStrict $ runPut (fill frame)
-    loop 0
+sendFrame :: SerialPort -> [Color] -> IO ()
+sendFrame s frame = send' (zip [0..] frame)
   where
+    -- Send only 30 pixels at once
+    send' [] = do
+      send s $ toStrict $ runPut $ do
+        showPixels
+        put (99 :: Word8)
+      waitForAcknowledgement
+      return ()
+    send' list = do
+      send s $ toStrict $ runPut $ setPixels (take 30 list)
+      waitForAcknowledgement
+      send' (drop 30 list)
+
+    waitForAcknowledgement = loop 0
+
     loop i = do
       str <- recv s 1
       if B.null str then do
@@ -29,11 +41,6 @@ sendFrame s frame = do
           loop (i + 1)
       else
         return str
-
-fill :: [Color] -> Put
-fill colors = do
-    setPixels $ zip [0..] colors
-    showPixels
 
 showPixels :: Put
 showPixels = put (3 :: Word8)

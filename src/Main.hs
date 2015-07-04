@@ -9,6 +9,7 @@ import Data.Binary
 import Data.IORef
 
 import Animation
+import Color
 import qualified Websocket as WS
 
 main :: IO ()
@@ -17,8 +18,8 @@ main = do
     s <- openSerial port defaultSerialSettings { commSpeed = CS115200 }
     replicateM_ 3 $ send s $ toStrict $ encode (0 :: Word64)
     counter <- newIORef 0
-    animation <- newMVar (sinBrightness counter >=> cycleRight)
-    WS.start animation counter
+    animation <- newMVar (sinBrightness counter >=> every 5 counter cycleRight)
+    forkIO $ WS.start animation counter
     loop s animation counter Nothing 
   where
     loop :: SerialPort -> MVar Animation -> Counter -> Maybe ThreadId -> IO ()
